@@ -17,18 +17,18 @@ void parseData(int fd);
 void getFullPath(char* writeLoc, char* fileName, char* filePath);
 char* addExtension(char* addOn, char* fileName);
 void moveFile(char* oldPath, char* newPath);
+
+char* dirToWatch = "/home/josh/C-DirectoryScan/aerospace-testing/watchDir";
 int main(int argc, char* argv[]){
-	//This error checking will be useless is final version as all the final paths will be hard coded, we should not be changing directory names so this will take no arguments
-	 if(argc!=2){
-		printf("Invalid usage: ./main.c watchDir\n");
-		return -1;
-	}
-	char* stashExtension = "/home/josh/aerospace-testing/ProcessedFiles";
-	char* oddExtension = "/home/josh/aerospace-testing/OddBallFiles";
+	// //This error checking will be useless is final version as all the final paths will be hard coded, we should not be changing directory names so this will take no arguments
+	//  if(argc!=1){
+	// 	printf("Invalid usage: ./main.c watchDir\n");
+	// 	return -1;
+	// }
+	char* stashExtension = "/home/josh/C-DirectoryScan/aerospace-testing/ProcessedFiles";
+	char* oddExtension = "/home/josh/C-DirectoryScan/aerospace-testing/OddBallFiles";
 	char buffer[BUFFER_LEN];
 	char* filePath = argv[1];
-	char* stashPath = argv[2];
-	char* oddBallPath = argv[3];
 	int fd, wd;
 	fd = inotify_init();
 	if(fd<0){
@@ -56,9 +56,9 @@ int main(int argc, char* argv[]){
 			struct inotify_event *event = (struct inotify_event*) &buffer[i];
 			if(event->len){
 				if(event->mask & IN_CREATE){
-					sleep(1);
+					sleep(2); //From my testing, I found that the move file logic can have a few multiple second delay sometimes, to account for that there is this sleep
 					if(strcmp(oldFileName, event->name)!=0){
-						//IN_CREATE triggers instantly and I found some inconsistences that were fixed by adding a small sleep in
+						//From my testing, I found that the move file logic can have a few multiple second delay sometimes, to account for that there is this sleep
 						if(event->mask & IN_ISDIR){
 							//printf("New directory %s created\n", event->name);
 							//Do nothing as we aren't expecting any directories
@@ -72,6 +72,7 @@ int main(int argc, char* argv[]){
 								curFD = open(fullDirectory, O_RDONLY); //We should not be modifying the data so this will be read only
 								parseData(curFD);
 								close(curFD);
+								char* newLocation= malloc(strlen(stashExtension)+strlen(newFile)+2);
 								char* newLoc = addExtension(stashExtension, newFile);
 								moveFile(fullDirectory, newLoc);
 								free(newLoc);
@@ -81,11 +82,12 @@ int main(int argc, char* argv[]){
 								moveFile(fullDirectory, newLoc);
 								free(newLoc);
 							}
+							memset(fullDirectory, 0, strlen(newFile)+strlen(filePath)+2);
 							free(fullDirectory);
 						}
 					}
 				}else if(event->mask & IN_MOVE){
-					sleep(1);
+					sleep(2); //From my testing, I found that the move file logic can have a few multiple second delay sometimes, to account for that there is this sleep
 					if(strcmp(oldFileName, event->name)!=0){
 						if(event->mask & IN_ISDIR){
 							//printf("New directory %s created\n", event->name);
@@ -124,6 +126,8 @@ int main(int argc, char* argv[]){
 }
 char* addExtension(char* addOn, char* fileName){
 	char* fullPath = malloc(strlen(addOn)+2 +strlen(fileName));
+	//This memset is very important, the filepath seems to get corrupted after a few usages without this here
+	memset(fullPath, 0, (strlen(addOn)+2+strlen(fileName)));
 	strcat(fullPath, addOn);
 	strcat(fullPath, "/");
 	strcat(fullPath, fileName);
