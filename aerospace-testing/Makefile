@@ -3,7 +3,13 @@ CFLAGS=-Wall -o
 ALL: main.c
 	$(CC) $(CFLAGS) main main.c
 
-.PHONY: clean
+.PHONY: clean, cleanDir, cleanAll
 
 clean:
-	rm *.o main /home/josh/C-DirectoryScan/aerospace-testing/OddBallFiles/* /home/josh/C-DirectoryScan/aerospace-testing/ProcessedFiles/*
+	rm main
+
+cleanDir:
+	rm /home/josh/C-DirectoryScan/aerospace-testing/OddBallFiles/* /home/josh/C-DirectoryScan/aerospace-testing/ProcessedFiles/*
+
+cleanAll:
+	rm main /home/josh/C-DirectoryScan/aerospace-testing/OddBallFiles/* /home/josh/C-DirectoryScan/aerospace-testing/ProcessedFiles/*

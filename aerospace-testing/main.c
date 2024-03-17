@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #define EVENT_SIZE (sizeof(struct inotify_event)) //size of one event
-#define MAX_EVENT_MONITOR 2048
+#define MAX_EVENT_MONITOR 2048 //Maximum number of events that this script can watch for- I think? inotify documentation is pretty terrible so I would like to write a script to test this 
 #define NAME_LEN 32 //filename length
 #define BUFFER_LEN MAX_EVENT_MONITOR*(EVENT_SIZE+NAME_LEN) //buffer length
 int isCSV(char* fileName);
@@ -164,6 +164,22 @@ Moving Forward:
 3. Hardest part will be figuring out how to interface this to write over CAN to COSMOS
 	a. https://www.kernel.org/doc/html/next/networking/can.html
 	We shouldn't need any external CAN library, SocketCAN is built into the linux kernal and allows us to write over CAN via a socket.
-	
+
+How to parse CSV?
+Probably easiest to use a csv C library that already exist
+https://github.com/jandoczy/csv-fast-reader
+Now I need to figure out how to convert parsed CSV into a format that COSMOS will accept, once I have that I can open a socket and use SocketCAn to write to COSMOS
+
+
+QOL Features to look into:
+	Add a log.txt file and convert all the printfs into writes that output to the log
+	Add a timestamp on each action
+	Add some sort of 'restart' function in the event of any failures to prevent this code from ever stalling
+		Idea: Could fork into a child that actually does the watching while the parent just makes sure the process stays alive, if it ever crashes just have the parent restart it and continue watching
+
+Testing Stuff:
+	Tested with spamming new entries, it will have a bit of a delay processing everything due to the sleeps however it does process every file
+	Write a script that will create at least 2048  files and move them into the watched directory to try to force a failure
+
 */
 
