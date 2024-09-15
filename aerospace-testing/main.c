@@ -353,3 +353,12 @@ void encodeAndSend(int dataSize, void *data, uint8_t header, int signature) {
   }
 }
 
+/* 
+To Do:
+
+Need to figure out where certain params are in tlm.txt and why certian values have extremely large bit-sizes
+
+Need to debug cosmos socket so I can open a socket here to send data over
+
+That should be it?
+*/
