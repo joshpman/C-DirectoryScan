@@ -10,7 +10,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#define htonll(x) ((1==htonl(1)) ? (x) : ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define __BYTE_ORDER __BIG_ENDIAN__
+#define htonll(x)                                                              \
+  ((1 == htonl(1))                                                             \
+       ? (x)                                                                   \
+       : ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
 #define hexterminator 0xBEEF;
 #define EVENT_SIZE (sizeof(struct inotify_event)) // size of one event
 #define MAX_EVENT_MONITOR                                                      \
@@ -24,7 +28,8 @@ void parseData(int fd);
 void getFullPath(char *writeLoc, char *fileName, char *filePath);
 char *addExtension(char *addOn, char *fileName);
 void moveFile(char *oldPath, char *newPath);
-void encodeAndSend(int dataSize, void *data, uint8_t header, int socketFD);
+void encodeAndSend(int dataSize, void *data, uint8_t header, int signature);
+int socketFD;
 typedef struct {
   uint8_t id;
   uint8_t data;
@@ -45,6 +50,26 @@ typedef struct {
   uint64_t data;
   int16_t terminator;
 } packet64;
+typedef struct {
+  uint8_t id;
+  int8_t data;
+  int16_t terminator;
+} packet8unsigned;
+typedef struct {
+  uint8_t id;
+  int16_t data;
+  int16_t terminator;
+} packet16unsigned;
+typedef struct {
+  uint8_t id;
+  int32_t data;
+  int16_t terminator;
+} packet32unsigned;
+typedef struct {
+  uint8_t id;
+  int64_t data;
+  int16_t terminator;
+} packet64unsigned;
 char *dirToWatch = "/home/josh/C-DirectoryScan/aerospace-testing/watchDir";
 
 int main(int argc, char *argv[]) {
@@ -200,70 +225,131 @@ void getFullPath(char *writeLoc, char *fileName, char *filePath) {
   strcat(writeLoc, fileName);
 }
 void parseData(int fd) {
+  char dataArr[500];
+  int i = 0;
+  while (read(fd, &dataArr[i++], 1) > 0)
+    ; // Reading data byte-by-byte
+  encodeAndSend(16, (void *)(((uint8_t)dataArr[2] << 8) | (uint8_t)dataArr[3]),
+                (uint8_t)123, 0);
 
-  /*
+  for (int i = 4; i < 15; i++) {
+    encodeAndSend(8, (void *)((uint8_t)dataArr[i]), (uint8_t)125, 0);
+  }
+  encodeAndSend(16,
+                (void *)(((uint8_t)dataArr[16] << 8) | (uint8_t)dataArr[17]),
+                (uint8_t)100, 0);
 
-  Need example of packed file to write this still
+  encodeAndSend(16,
+                (void *)(((uint8_t)dataArr[18] << 8) | (uint8_t)dataArr[19]),
+                (uint8_t)101, 0);
+  for (int i = 20; i < 99; i += 8) {
+    uint64_t value;
+    for (int j = i; j < j + 7; j++) {
+      value = (value << 8) | dataArr[j];
+    }
+    encodeAndSend(64, (void *)(value), 113, 0);
+  }
+  for (int i = 116; i < 139; i += 2) {
+    encodeAndSend(
+        16, (void *)(((uint8_t)dataArr[i] << 8) | (uint8_t)dataArr[i + 1]), 114,
+        0);
+  }
+  for (int i = 140; i < 163; i += 2) {
+    encodeAndSend(
+        16, (void *)(((uint8_t)dataArr[i] << 8) | (uint8_t)dataArr[i + 1]), 115,
+        0);
+  }
+  for (int i = 163; i < 187; i += 2) {
+    encodeAndSend(
+        16, (void *)(((uint8_t)dataArr[i] << 8) | (uint8_t)dataArr[i + 1]), 116,
+        0);
+  }
+  for (int i = 188; i < 211; i += 2) {
+    encodeAndSend(
+        16, (void *)(((uint8_t)dataArr[i] << 8) | (uint8_t)dataArr[i + 1]), 117,
+        0);
+  }
+  for (int i = 212; i < 235; i += 2) {
+    encodeAndSend(
+        16, (void *)(((uint8_t)dataArr[i] << 8) | (uint8_t)dataArr[i + 1]), 118,
+        0);
+  }
+  for (int i = 236; i < 259; i += 2) {
+    encodeAndSend(
+        16, (void *)(((uint8_t)dataArr[i] << 8) | (uint8_t)dataArr[i + 1]), 120,
+        0);
+  }
+  for (int i = 260; i < 283; i += 2) {
+    encodeAndSend(
+        16, (void *)(((uint8_t)dataArr[i] << 8) | (uint8_t)dataArr[i + 1]), 121,
+        0);
+  }
+  i = 284;
+  encodeAndSend(16, (void *)(((int8_t)dataArr[i] << 8) | (int8_t)dataArr[++i]),
+                106, 1);
+  for (int i = 286; i < 291; i++) {
+    encodeAndSend(8, (void *)((uint8_t)dataArr[i]), 111, 0);
+  }
 
-  */
 }
-
-void encodeAndSend(int dataSize, void *data, uint8_t header, int socketFD) {
+// 0 for unsigned 1 for signed
+void encodeAndSend(int dataSize, void *data, uint8_t header, int signature) {
   switch (dataSize) {
   case 8:
-    packet8 packet;
-    packet.id = htons(header);
-    packet.data = htons(*(uint8_t *)(data));
-    write(socketFD, &packet, sizeof(packet));
+    if (signature == 0) {
+      packet8 packet;
+      packet.id = htons(header);
+      packet.data = htons(*(uint8_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    } else {
+      packet8unsigned packet;
+      packet.id = htons(header);
+      packet.data = htons(*(int8_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    }
+
     break;
   case 16:
-    packet16 packet2;
-    packet2.id = htons(header);
-    packet2.data = htons(*(uint16_t *)(data));
-    write(socketFD, &packet2, sizeof(packet2));
-    break;
+    if (signature == 0) {
+      packet16 packet;
+      packet.id = htons(header);
+      packet.data = htons(*(uint16_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    } else {
+      packet16unsigned packet;
+      packet.id = htons(header);
+      packet.data = htons(*(int16_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    }
+
   case 32:
-    packet32 packet3;
-    packet3.id = htons(header);
-    packet3.data = htonl(*(uint32_t *)(data));
-    write(socketFD, &packet3, sizeof(packet3));
+    if (signature == 0) {
+      packet32 packet;
+      packet.id = htons(header);
+      packet.data = htonl(*(uint32_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    } else {
+      packet32unsigned packet;
+      packet.id = htons(header);
+      packet.data = htonl(*(int32_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    }
     break;
   case 64:
-    packet64 packet4;
-    packet4.id = htons(header);
-    packet4.data = htonll(*(uint64_t *)(data));
-    write(socketFD, &packet4, sizeof(packet4));
+    if (signature == 0) {
+      packet64 packet;
+      packet.id = htons(header);
+      packet.data = htonll(*(uint8_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    } else {
+      packet8unsigned packet;
+      packet.id = htons(header);
+      packet.data = htonll(*(int8_t *)(data));
+      write(socketFD, &packet, sizeof(packet));
+    }
     break;
   default:
     return;
   }
 }
 
-/*
-Moving Forward:
-1. Need an example of the packed data so I can write parseData
-2. Need to know what kind of file names we'll be getting, if there will be
-duplicate files rename will fail and eventually clutter our watched
-directory a. This can be handled by just renaming the files to a timestamp
-instead of their original name so its not a hard fix but its still worth
-looking into
-3. Hardest part will be figuring out how to interface this to write over CAN
-to COSMOS a. https://www.kernel.org/doc/html/next/networking/can.html We
-shouldn't need any external CAN library, SocketCAN is built into the linux
-kernal and allows us to write over CAN via a socket.
-
-QOL Features to look into:
-        Add a log.txt file and convert all the printfs into writes that
-output to the log Add a timestamp on each action Add some sort of 'restart'
-function in the event of any failures to prevent this code from ever
-stalling Idea: Could fork into a child that actually does the watching while
-the parent just makes sure the process stays alive, if it ever crashes just
-have the parent restart it and continue watching
-
-Testing Stuff:
-        Tested with spamming new entries, it will have a bit of a delay
-processing everything due to the sleeps however it does process every file
-        Write a script that will create at least 2048  files and move them
-into the watched directory to try to force a failure
-
-*/
