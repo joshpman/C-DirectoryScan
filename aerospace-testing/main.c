@@ -23,6 +23,7 @@
        // script to test this
 #define NAME_LEN 32                                           // filename length
 #define BUFFER_LEN MAX_EVENT_MONITOR *(EVENT_SIZE + NAME_LEN) // buffer length
+#pragma pack(1)
 int isCSV(char *fileName);
 void parseData(int fd);
 void getFullPath(char *writeLoc, char *fileName, char *filePath);
@@ -206,7 +207,9 @@ char *addExtension(char *addOn, char *fileName) {
   strcat(fullPath, fileName);
   return fullPath;
 }
+//Needs to be modified to search for SOH**.txt
 int isCSV(char *fileName) {
+  return 1;
   char *extension = strrchr(fileName, '.');
   return extension && strcmp(extension + 1, "csv") == 0;
 }
@@ -217,7 +220,7 @@ void moveFile(char *oldPath, char *newPath) {
   if (response == -1) {
     perror("File move failed\n");
   }
-}
+
 void getFullPath(char *writeLoc, char *fileName, char *filePath) {
   memset(writeLoc, 0, strlen(writeLoc));
   strcat(writeLoc, filePath);
